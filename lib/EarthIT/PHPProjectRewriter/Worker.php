@@ -50,7 +50,6 @@ class EarthIT_PHPProjectRewriter_Worker
 	
 	public function run($inSubPath='') {
 		$outSubPath = $this->transformSubPath($inSubPath);
-		echo "{$inSubPath} -> {$outSubPath}\n";
 		$inFile = self::fullPath($this->inProj, $inSubPath);
 		$outFile = self::fullPath($this->outProj, $outSubPath);
 		if( is_dir($inFile) ) {
