@@ -71,6 +71,7 @@ class EarthIT_PHPProjectRewriter_Worker
 
 			if( ($outDir = dirname($outFile)) and !is_dir($outDir) ) mkdir($outDir, 0755, true);
 			file_put_contents($outFile, $content);
+			chmod($outFile, fileperms($inFile) & 0777);
 		}
 	}
 }
