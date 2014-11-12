@@ -1,0 +1,9 @@
+{
+	"name": "earthit/php-project-rewriter",
+	"description": "Creates a new project from an old one, rewriting identifiers as appropriate.",
+	"autoload": {
+		"psr-0": {
+			"EarthIT_PHPProjectRewriter": "lib/"
+		}
+	}
+}

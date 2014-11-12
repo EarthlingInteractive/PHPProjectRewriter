@@ -1,0 +1,59 @@
+#!/usr/bin/php
+<?php
+
+function __autoload($className) {
+	$libDirs = array( __DIR__.'/../lib' );
+	foreach( $libDirs as $libDir ) {
+		$filename = $libDir.'/'.strtr($className, array('_'=>'/')).'.php';
+		if( file_exists($filename) ) {
+			require_once $filename;
+			return;
+		}
+	}
+}
+
+$inDir = null;
+$outDir = null;
+for( $i=1; $i<count($argv); ++$i ) {
+	if( '-o' == $argv[$i] ) {
+		$arg = $argv[++$i];
+		if( $outDir === null ) $outDir = $arg;
+		else {
+			fwrite(STDERR, "Error: output directory specified twice as '$outDir', '$arg'\n");
+			exit(1);
+		}
+	} else if( $argv[$i][0] != '-' ) {
+		if( $inDir === null ) {
+			$inDir = $argv[$i];
+		} else if( $outDir === null ) {
+			$outDir = $argv[$i];
+		} else {
+			fwrite(STDERR, "Error: Extraneous bare argument: {$argv[$i]}\n");
+			exit(1);
+		}
+	} else if( in_array($argv[$i], array('-h','-?','--help')) ) {
+		fwrite(STDOUT,
+			"Usage: {$argv[0]} <input-dir> <output-dir>\n".
+			"\n".
+			"Both input and output directories must have a .ppi-settings.json.\n"
+		);
+		exit(0);
+	} else {
+		fwrite(STDERR, "Error: Unrecognized argument: {$argv[$i]}\n");
+		exit(1);
+	}
+}
+
+if( $inDir === null ) {
+	fwrite(STDERR, "Error: No input directory specified.\n");
+	exit(1);
+}
+if( $outDir === null ) {
+	fwrite(STDERR, "Error: No output directory specified.\n");
+	exit(1);
+}
+
+$inProj = new EarthIT_PHPProjectRewriter_Project($inDir);
+$outProj = new EarthIT_PHPProjectRewriter_Project($outDir);
+$rw = new EarthIT_PHPProjectRewriter();
+$rw->rewrite($inProj, $outProj);
