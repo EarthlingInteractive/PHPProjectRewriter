@@ -28,28 +28,19 @@ class EarthIT_PHPProjectRewriter_Worker
 	public function __construct( EarthIT_PHPProjectRewriter_Project $inProj, EarthIT_PHPProjectRewriter_Project $outProj ) {
 		$this->inProj = $inProj;
 		$this->outProj = $outProj;
-		$inConfig = $inProj->getConfig();
 		$this->textReplacements = self::replacements($inProj, $outProj);
-		$soucreDirRegexes = array();
-		foreach( $inConfig['sourceDirs'] as $sd ) $sourceDirRegexes[] = preg_quote($sd, '#');
-		$this->filenameReplacements = array(
-			'#^('.implode('|',$sourceDirRegexes).')/'.preg_quote($inProj->getKrog13(),'#').'(/.*)?$#' => '$1/'.$outProj->getKrog13().'$2'
-		);
 	}
 	
 	protected function transformSubPath($subPath) {
-		foreach( $this->filenameReplacements as $re => $repl ) {
-			$subPath = preg_replace($re, $repl, $subPath);
-		}
-		return $subPath;
+		return strtr($subPath, $this->textReplacements);
 	}
 	
 	protected function fullPath( EarthIT_PHPProjectRewriter_Project $proj, $path ) {
 		return $proj->getDir() . ($path ? '/'.$path : '');
 	}
 	
-	public function run($inSubPath='') {
-		$outSubPath = $this->transformSubPath($inSubPath);
+	public function run($inSubPath='', $doReplacements=true) {
+		$outSubPath = $doReplacements ? $this->transformSubPath($inSubPath) : $inSubPath;
 		$inFile = self::fullPath($this->inProj, $inSubPath);
 		$outFile = self::fullPath($this->outProj, $outSubPath);
 		if( is_dir($inFile) ) {
@@ -58,7 +49,7 @@ class EarthIT_PHPProjectRewriter_Worker
 			if( $dh === false ) throw new Exception("Failed to open directory '$inFile'");
 			while( ($fn = readdir($dh)) !== false ) {
 				if( preg_match('#^(\.|\.\.|.*~)$#', $fn) ) continue;
-				$this->run($inSubPath ? $inSubPath.'/'.$fn : $fn);
+				$this->run($inSubPath ? $inSubPath.'/'.$fn : $fn, $doReplacements && ($fn !== '.git'));
 			}
 			closedir($dh);
 		} else {
@@ -67,7 +58,7 @@ class EarthIT_PHPProjectRewriter_Worker
 			
 			$content = file_get_contents($inFile);
 			if( $content === false ) throw new Exception("Failed to read '$inFile'");
-			$content = strtr($content, $this->textReplacements);
+			$content = $doReplacements ? strtr($content, $this->textReplacements) : $content;
 
 			if( ($outDir = dirname($outFile)) and !is_dir($outDir) ) mkdir($outDir, 0755, true);
 			file_put_contents($outFile, $content);
