@@ -1,0 +1,87 @@
+#!/usr/bin/php
+<?php
+
+// Upgrade a project (the current directory) based on some template.
+
+function currentBranchName($dir='.git') {
+	$headFile = "$dir/HEAD";
+	$headText = file_get_contents($headFile);
+	if( $headText === false ) {
+		throw new Exception("Couldn't determine current branch because couldn't read $headFile");
+	}
+	if( !preg_match( '#refs/heads/(.*)#', $headText, $bif ) ) {
+		throw new Exception("Couldn't determine current branch");
+	}
+	return $bif[1];
+}
+
+function branchExists($branchName, $dir='.git') {
+	return file_exists("$dir/refs/heads/$branchName");
+}
+
+function sys($cmd) {
+	if( is_array($cmd) ) {
+		$cmd = implode(' ',array_map('escapeshellarg',$cmd));
+	}
+	fwrite(STDERR, "$ $cmd\n");
+	system($cmd, $status);
+	if( $status !== 0 ) {
+		throw new Exception("Command exited with status $status: $cmd");
+	}
+}
+
+
+$templateProjectDir = null;
+// If you change $projectDir, you'll need to adjust some of the git stuff,
+// because it assumes we're in this directory already.
+$projectDir = '.';
+
+$rewriterDir = dirname(__DIR__);
+for( $i=1; $i < count($argv); ++$i ) {
+	if( $argv[$i] === '-t' ) {
+		$templateProjectDir = $argv[++$i];
+	} else {
+		fwrite(STDERR, "Error: Unrecognized argument: ".$argv[$i]."\n");
+		exit(1);
+	}
+}
+
+if( $templateProjectDir === null ) {
+	fwrite(STDERR, "Error: No template project directory (-t <dir>) specified.\n");
+	exit(1);
+}
+
+$originalBranchName = currentBranchName();
+$templateBranchName = 'rewritten-template-project';
+$anyChanges = false;
+$rewriteSuccess = false;
+try {
+	if( !branchExists($templateBranchName) ) {
+		sys("git checkout -b ".escapeshellarg($templateBranchName));
+	} else {
+		sys("git checkout ".escapeshellarg($templateBranchName));
+	}
+	
+	sys("find . -mindepth 1 | grep -v '^\\./\\.git\\|^\\./\\.ppi-settings\\.json' | xargs rm -rf");
+	sys(array($rewriterDir."/bin/rewrite-project", $templateProjectDir, $projectDir));
+	sys("git add -A .");
+	$gitStatus = `git status --porcelain`;
+	$anyChanges = !empty($gitStatus);
+	if( $anyChanges ) {
+		sys("git commit -m 'Regenerate from template'");
+	}
+	$rewriteSuccess = true;
+} finally {
+	if( !$rewriteSuccess ) sys("git reset --hard");
+	sys("git checkout ".escapeshellarg($originalBranchName));
+}
+if( $anyChanges ) {
+	sys("git merge --no-commit ".escapeshellarg($templateBranchName));
+} else {
+	fwrite(STDERR, "No updates!\n");
+}
+
+//find WholeTreesWebTemplate/ -mindepth 1 | grep -v '.git\|.ppi-settings.json' | xargs rm -rf
+//~/proj/PHPProjectRewriter/bin/rewrite-project ~/proj/PHPTemplateProject WholeTreesWebTemplate
+//(cd WholeTreesWebTemplate && git add -A . && git commit -m "Regenerate from template project")
+//(cd WholeTreesWeb && git fetch ../WholeTreesWebTemplate/.git && git merge `cat ../WholeTreesWebTemplate/.git/refs/heads/master`)
