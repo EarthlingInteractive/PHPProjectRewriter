@@ -4,35 +4,45 @@ class EarthIT_PHPProjectRewriter_Worker
 {
 	protected $inProj;
 	protected $outProj;
-	protected $textReplacements; // For strtr
-	protected $filenameReplacements; // For preg_replace
+	protected $textReplacements;
+	protected $filenameReplacements;
 	
 	// For several variables, it is assumed that the output project has
 	// a similar structure to the input one.  e.g.  output.sourceDirs
 	// is not consulted; only input.sourceDirs.
 	
-	protected static function replacements( EarthIT_PHPProjectRewriter_Project $inProj, EarthIT_PHPProjectRewriter_Project $outProj ) {
+	const TR_TEXT     = 'text';
+	const TR_FILENAME = 'filename';
+	
+	protected static function replacements( EarthIT_PHPProjectRewriter_Project $inProj, EarthIT_PHPProjectRewriter_Project $outProj, $mode ) {
 		$inConfig = $inProj->getConfig();
 		$outConfig = $outProj->getConfig();
 		$replacements = array();
 		foreach( $inConfig as $k=>$v ) {
-			if( is_string($v) ) {
+			if( is_string($v) and isset($outConfig[$k]) ) {
 				// May need to use a list of config properties that are actually names
 				$replacements[$v] = $outConfig[$k];
 			}
 		}
-		//$replacements[$sector.'/'.$inProj->getKrog13($sector)] = $outProj->getSourceDir($sector);
+		// Filenames representing PHP namespaces need to be treated
+		// different than source text!
+		if( $mode === self::TR_FILENAME && isset($outConfig['phpNamespace']) && isset($inConfig['phpNamespace']) ) {
+			$inNs  = str_replace(array('_','\\'), '/',  $inConfig['phpNamespace']);
+			$outNs = str_replace(array('_','\\'), '/', $outConfig['phpNamespace']);
+			$replacements[$inNs] = $outNs;
+		}
 		return $replacements;
 	}
 	
 	public function __construct( EarthIT_PHPProjectRewriter_Project $inProj, EarthIT_PHPProjectRewriter_Project $outProj ) {
 		$this->inProj = $inProj;
 		$this->outProj = $outProj;
-		$this->textReplacements = self::replacements($inProj, $outProj);
+		$this->textReplacements     = self::replacements($inProj, $outProj, self::TR_TEXT);
+		$this->filenameReplacements = self::replacements($inProj, $outProj, self::TR_FILENAME);
 	}
 	
 	protected function transformSubPath($subPath) {
-		return strtr($subPath, $this->textReplacements);
+		return strtr($subPath, $this->filenameReplacements);
 	}
 	
 	protected function fullPath( EarthIT_PHPProjectRewriter_Project $proj, $path ) {
