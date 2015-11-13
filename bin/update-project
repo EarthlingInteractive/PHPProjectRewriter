@@ -80,8 +80,3 @@ if( $anyChanges ) {
 } else {
 	fwrite(STDERR, "No updates!\n");
 }
-
-//find WholeTreesWebTemplate/ -mindepth 1 | grep -v '.git\|.ppi-settings.json' | xargs rm -rf
-//~/proj/PHPProjectRewriter/bin/rewrite-project ~/proj/PHPTemplateProject WholeTreesWebTemplate
-//(cd WholeTreesWebTemplate && git add -A . && git commit -m "Regenerate from template project")
-//(cd WholeTreesWeb && git fetch ../WholeTreesWebTemplate/.git && git merge `cat ../WholeTreesWebTemplate/.git/refs/heads/master`)
