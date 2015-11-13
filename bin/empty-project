@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Clean out all files except .git and .ppi-settings.json.
+# This is the first step of update-project, but you can use this
+# if you want to do the other steps yourself because you're
+# doing something a little different than usual.
+
+if [ $# -eq 0 ] ; then
+    project_dir=.
+else
+    project_dir="$1"
+fi
+
+find "$project_dir" -mindepth 1 | grep -v '.git\|.ppi-settings.json' | xargs rm -rf
