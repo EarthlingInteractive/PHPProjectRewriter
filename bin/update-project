@@ -3,6 +3,13 @@
 
 // Upgrade a project (the current directory) based on some template.
 
+function currentCommitId($dir='.git', $branchName=null) {
+	if( $branchName === null ) $branchName = currentBranchName($dir);
+	$f = "{$dir}/refs/heads/{$branchName}";
+	$c = file_get_contents($f);
+	if( $c === false ) throw new Exception("Failed to read $f");
+	return trim($c);
+}
 function currentBranchName($dir='.git') {
 	$headFile = "$dir/HEAD";
 	$headText = file_get_contents($headFile);
@@ -62,9 +69,17 @@ try {
 		sys("git checkout ".escapeshellarg($templateBranchName));
 	}
 	
+	$templateProjectGitDir = "{$templateProjectDir}/.git";
+	$templateProjectBranch = currentBranchName($templateProjectGitDir);
+	if( file_exists($templateProjectGitDir) ) {
+		sys(array('git','fetch',$templateProjectGitDir));
+		sys(array('git','merge','--no-commit','-s','ours',currentCommitId($templateProjectGitDir, $templateProjectBranch)));
+	}
+	
 	sys("find . -mindepth 1 | grep -v '^\\./\\.git\\|^\\./\\.ppi-settings\\.json' | xargs rm -rf");
 	sys(array($rewriterDir."/bin/rewrite-project", $templateProjectDir, $projectDir));
 	sys("git add -A .");
+	
 	$gitStatus = `git status --porcelain`;
 	$anyChanges = !empty($gitStatus);
 	if( $anyChanges ) {
