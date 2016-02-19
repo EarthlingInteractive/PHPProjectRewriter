@@ -1,6 +1,9 @@
 #!/usr/bin/php
 <?php
 
+/** Indicates that the program should quit, but allowing finally blocks to be run */
+class LeQuit extends Exception { }
+
 // Upgrade a project (the current directory) based on some template.
 
 function currentCommitId($dir='.git', $branchName=null) {
@@ -26,15 +29,16 @@ function branchExists($branchName, $dir='.git') {
 	return file_exists("$dir/refs/heads/$branchName");
 }
 
-function sys($cmd) {
+function sys($cmd, $allowError=false) {
 	if( is_array($cmd) ) {
 		$cmd = implode(' ',array_map('escapeshellarg',$cmd));
 	}
 	fwrite(STDERR, "$ $cmd\n");
 	system($cmd, $status);
-	if( $status !== 0 ) {
+	if( $status !== 0 and !$allowError ) {
 		throw new Exception("Command exited with status $status: $cmd");
 	}
+	return $status === 0;
 }
 
 
@@ -64,7 +68,12 @@ $anyChanges = false;
 $rewriteSuccess = false;
 try {
 	if( !branchExists($templateBranchName) ) {
-		sys("git checkout -b ".escapeshellarg($templateBranchName));
+		fwrite(STDERR, "$templateBranchName does not exist.  This is required for proper updating.\n");
+		fwrite(STDERR, "You can create it from the 'Generate from template project' commit like so:\n");
+		fwrite(STDERR, "$ git checkout <whatever that commit is> -b $templateBranchName\n");
+		fwrite(STDERR, "Aborting.\n");
+		throw new LeQuit();
+		//sys("git checkout -b ".escapeshellarg($templateBranchName));
 	} else {
 		sys("git checkout ".escapeshellarg($templateBranchName));
 	}
@@ -86,12 +95,20 @@ try {
 		sys("git commit -m 'Regenerate from template'");
 	}
 	$rewriteSuccess = true;
+} catch( LeQuit $e ) {
+	$rewriteSuccess = false;
 } finally {
 	if( !$rewriteSuccess ) sys("git reset --hard");
 	sys("git checkout ".escapeshellarg($originalBranchName));
 }
-if( $anyChanges ) {
-	sys("git merge --no-commit ".escapeshellarg($templateBranchName));
+
+if( !$rewriteSuccess ) exit(1);
+
+$merged = sys("git merge --no-commit ".escapeshellarg($templateBranchName), true);
+if( !$merged ) {
+	echo "Merge not successful, but everything else was.\n";
+	echo "You may fix conflicts and complete the merge manually.\n";
 } else {
-	fwrite(STDERR, "No updates!\n");
+	echo "Updated and merge completed (but not committed) automatically.\n";
+	echo "Review the changes and complete the merge commit manually\n";
 }
